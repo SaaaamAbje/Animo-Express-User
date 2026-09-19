@@ -9,25 +9,61 @@ import { Skeleton } from '../../components/ui/Skeleton';
 import { MOCK_STALLS, MOCK_MENU_ITEMS } from '../../lib/data';
 import { formatPrice } from '../../lib/utils';
 import { useCartStore } from '../../store/useCartStore';
+import { api } from '../../lib/api';
 
 export default function StallMenuPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { items: cartItems, addItem, clearCart, stall: cartStall } = useCartStore();
   
-  const stall = MOCK_STALLS.find(s => s.id === id);
-  const menuItems = MOCK_MENU_ITEMS.filter(item => item.stallId === id);
-  const categories = ['All', ...new Set(menuItems.map(item => item.category))];
-  
+  const [stall, setStall] = useState<any>(null);
+  const [menuItems, setMenuItems] = useState<any[]>([]);
   const [activeCategory, setActiveCategory] = useState('All');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [pendingItem, setPendingItem] = useState<{item: any, stall: any} | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 1200);
-    return () => clearTimeout(timer);
+    const fetchStall = async () => {
+      if (!id) return;
+      try {
+        const data = await api.stalls.getById(id);
+        setStall(data);
+        setMenuItems(data.menuItems || []);
+      } catch (error) {
+        console.error('Failed to fetch stall:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchStall();
   }, [id]);
+
+  const categories = ['All', ...new Set(menuItems.map(item => item.category))];
+  
+  if (isLoading) {
+    return (
+      <div className="flex-1 flex flex-col bg-white">
+        <TopBar showBack showCart title="Loading Stall..." />
+        <div className="px-6 py-6 space-y-6">
+          <Skeleton className="h-10 w-3/4 mb-4 rounded-xl" />
+          <Skeleton className="h-4 w-1/2 mb-8 rounded-xl" />
+          <div className="space-y-6">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex gap-4">
+                <div className="flex-1">
+                  <Skeleton className="h-5 w-3/4 mb-2 rounded-lg" />
+                  <Skeleton className="h-3 w-full mb-1 rounded-lg" />
+                  <Skeleton className="h-5 w-16 rounded-lg mt-4" />
+                </div>
+                <Skeleton className="w-24 h-24 rounded-2xl shrink-0" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!stall) return null;
 

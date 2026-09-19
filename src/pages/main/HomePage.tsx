@@ -6,22 +6,33 @@ import { TopBar } from '../../components/navigation/TopBar';
 import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
 import { Skeleton } from '../../components/ui/Skeleton';
-import { MOCK_STALLS, CATEGORIES } from '../../lib/data';
+import { CATEGORIES } from '../../lib/data';
 import { useAuthStore } from '../../store/useAuthStore';
+import { api } from '../../lib/api';
 
 export default function HomePage() {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const [activeCategory, setActiveCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
+  const [stalls, setStalls] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 1500);
-    return () => clearTimeout(timer);
+    const fetchStalls = async () => {
+      try {
+        const data = await api.stalls.getAll();
+        setStalls(data);
+      } catch (error) {
+        console.error('Failed to fetch stalls:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchStalls();
   }, []);
 
-  const filteredStalls = MOCK_STALLS.filter(stall => {
+  const filteredStalls = stalls.filter(stall => {
     const matchesCategory = activeCategory === 'All' || stall.category === activeCategory;
     const matchesSearch = stall.name.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;

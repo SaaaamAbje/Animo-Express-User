@@ -9,11 +9,14 @@ import { Skeleton } from '../../components/ui/Skeleton';
 import { Modal } from '../../components/ui/Modal';
 import { formatPrice, cn } from '../../lib/utils';
 import { useCartStore } from '../../store/useCartStore';
-import { MOCK_STALLS, MOCK_MENU_ITEMS } from '../../lib/data';
+import { useAuthStore } from '../../store/useAuthStore';
+import { api } from '../../lib/api';
 
 export default function OrderHistoryPage() {
   const navigate = useNavigate();
+  const user = useAuthStore((state) => state.user);
   const [activeTab, setActiveTab] = useState('All');
+  const [orders, setOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [pendingReorder, setPendingReorder] = useState<any>(null);
@@ -24,96 +27,79 @@ export default function OrderHistoryPage() {
   const currentStall = useCartStore((state) => state.stall);
 
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 1000);
-    return () => clearTimeout(timer);
-  }, [activeTab]);
+    const fetchOrders = async () => {
+      if (!user) return;
+      setIsLoading(true);
+      try {
+        const data = await api.orders.getByUser(user.id);
+        const formattedOrders = data.map((o: any) => ({
+          ...o,
+          stallName: o.stall.name,
+          items: JSON.parse(o.items),
+          total: o.totalAmount,
+          date: new Date(o.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        }));
+        setOrders(formattedOrders);
+      } catch (error) {
+        console.error('Failed to fetch orders:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchOrders();
+  }, [user, activeTab]);
 
   const tabs = ['All', 'Active', 'Completed', 'Cancelled'];
 
-  const orders = [
-    { 
-      id: 'AE-1024', 
-      stallId: 'stall-1',
-      stallName: 'Stall #1 (Vendor Pending)', 
-      total: 150.0, 
-      date: 'Sept 19, 2023', 
-      status: 'ACTIVE', 
-      items: [
-        { menuItemId: 'item-1', quantity: 2 }
-      ] 
-    },
-    { 
-      id: 'AE-0985', 
-      stallId: 'stall-2',
-      stallName: 'Stall #2 (Vendor Pending)', 
-      total: 45.0, 
-      date: 'Sept 18, 2023', 
-      status: 'COMPLETED', 
-      items: [
-        { menuItemId: 'item-4', quantity: 1 }
-      ] 
-    },
-    { 
-      id: 'AE-0942', 
-      stallId: 'stall-1',
-      stallName: 'Stall #1 (Vendor Pending)', 
-      total: 220.0, 
-      date: 'Sept 15, 2023', 
-      status: 'CANCELLED', 
-      items: [
-        { menuItemId: 'item-1', quantity: 2 },
-        { menuItemId: 'item-2', quantity: 1 }
-      ] 
-    },
-  ];
+  const handleReorder = async (order: any) => {
+    try {
+      const stall = await api.stalls.getById(order.stallId);
+      
+      if (!stall || stall.status !== 'OPEN') {
+        setErrorModal({
+          title: 'Stall Unavailable',
+          message: `${order.stallName} is currently closed or paused. You cannot reorder at this time.`
+        });
+        return;
+      }
 
-  const handleReorder = (order: any) => {
-    const stall = MOCK_STALLS.find(s => s.id === order.stallId);
-    
-    if (!stall || stall.status !== 'OPEN') {
-      setErrorModal({
-        title: 'Stall Unavailable',
-        message: `${order.stallName} is currently closed or paused. You cannot reorder at this time.`
+      // Check if any items are sold out
+      const unavailableItems = order.items.filter((oi: any) => {
+        const menuItem = stall.menuItems.find((m: any) => m.id === oi.menuItemId);
+        return !menuItem || !menuItem.isAvailable;
       });
-      return;
+
+      if (unavailableItems.length > 0) {
+        setErrorModal({
+          title: 'Items Unavailable',
+          message: 'Some items from your previous order are currently sold out or unavailable.'
+        });
+        return;
+      }
+
+      // Check for multi-stall cart conflict
+      if (currentStall && currentStall.id !== order.stallId) {
+        setPendingReorder({ ...order, stall });
+        setIsModalOpen(true);
+        return;
+      }
+
+      // Add all items to cart
+      executeReorder({ ...order, stall });
+    } catch (error) {
+      console.error('Reorder error:', error);
     }
-
-    // Check if any items are sold out
-    const orderItems = order.items.map((oi: any) => {
-      const menuItem = MOCK_MENU_ITEMS.find(m => m.id === oi.menuItemId);
-      return { ...oi, menuItem };
-    });
-
-    const unavailableItems = orderItems.filter((oi: any) => !oi.menuItem || !oi.menuItem.isAvailable);
-    if (unavailableItems.length > 0) {
-      setErrorModal({
-        title: 'Items Unavailable',
-        message: 'Some items from your previous order are currently sold out or unavailable.'
-      });
-      return;
-    }
-
-    // Check for multi-stall cart conflict
-    if (currentStall && currentStall.id !== order.stallId) {
-      setPendingReorder(order);
-      setIsModalOpen(true);
-      return;
-    }
-
-    // Add all items to cart
-    executeReorder(order);
   };
 
-  const executeReorder = (order: any) => {
-    const stall = MOCK_STALLS.find(s => s.id === order.stallId)!;
+  const executeReorder = (orderWithStall: any) => {
+    const { items, stall } = orderWithStall;
     
-    order.items.forEach((oi: any) => {
-      const menuItem = MOCK_MENU_ITEMS.find(m => m.id === oi.menuItemId)!;
+    items.forEach((oi: any) => {
       addItem({
         id: Math.random().toString(36).substr(2, 9),
-        menuItemId: menuItem.id,
-        name: menuItem.name,
-        price: menuItem.price,
+        menuItemId: oi.menuItemId,
+        name: oi.name,
+        price: oi.price,
         quantity: oi.quantity,
       }, stall);
     });

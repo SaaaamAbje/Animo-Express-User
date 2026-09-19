@@ -5,11 +5,40 @@ import { TopBar } from '../../components/navigation/TopBar';
 import { Button } from '../../components/ui/Button';
 import { useCartStore } from '../../store/useCartStore';
 import { formatPrice, cn } from '../../lib/utils';
+import { useAuthStore } from '../../store/useAuthStore';
+import { api } from '../../lib/api';
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
-  const { items, stall, getTotal } = useCartStore();
+  const user = useAuthStore((state) => state.user);
+  const { items, stall, getTotal, clearCart } = useCartStore();
   const [paymentMethod, setPaymentMethod] = useState<'GCASH' | 'MAYA' | 'CASH'>('GCASH');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handlePayment = async () => {
+    if (!user || !stall) return;
+    setIsSubmitting(true);
+    try {
+      const order = await api.orders.create({
+        userId: user.id,
+        stallId: stall.id,
+        items,
+        totalAmount: getTotal(),
+        paymentMethod,
+        // For now, using a hardcoded slot ID or similar if needed
+        pickupSlotId: 'slot-1',
+      });
+      
+      // Clear cart after successful order creation (simulating success after payment)
+      clearCart();
+      navigate('/order-confirmation', { state: { orderId: order.id, orderNumber: order.orderNumber } });
+    } catch (error) {
+      console.error('Failed to create order:', error);
+      alert('Failed to process order. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const methods = [
     { id: 'GCASH', name: 'GCash', icon: Wallet, color: 'text-blue-600', bg: 'bg-blue-50' },
@@ -117,9 +146,10 @@ export default function CheckoutPage() {
       <div className="p-6 bg-white border-t border-slate-100">
         <Button 
           className="w-full h-16 rounded-[24px] text-lg font-black shadow-lg"
-          onClick={() => navigate('/payment')}
+          onClick={handlePayment}
+          disabled={isSubmitting}
         >
-          Pay {formatPrice(getTotal())}
+          {isSubmitting ? 'Processing...' : `Pay ${formatPrice(getTotal())}`}
         </Button>
       </div>
     </div>

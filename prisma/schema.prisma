@@ -1,0 +1,98 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String   @id @default(uuid())
+  studentId    String   @unique
+  name         String
+  email        String   @unique
+  mobile       String?
+  program      String?
+  yearLevel    String?
+  passwordHash String
+  orders       Order[]
+  notifications Notification[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Stall {
+  id           String     @id @default(uuid())
+  name         String
+  description  String?
+  location     String?
+  hours        String?
+  category     String?
+  rating       Float      @default(0)
+  estimatedTime String?   @default("10-15 mins")
+  isPaused     Boolean    @default(false)
+  bannerColor  String?
+  menuItems    MenuItem[]
+  orders       Order[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model MenuItem {
+  id           String   @id @default(uuid())
+  stallId      String
+  stall        Stall    @relation(fields: [stallId], references: [id])
+  name         String
+  description  String?
+  price        Float
+  category     String?
+  isAvailable  Boolean  @default(true)
+  imageUrl     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model PickupSlot {
+  id           String   @id @default(uuid())
+  date         String   // YYYY-MM-DD
+  timeWindow   String   // e.g., "10:00 - 10:30"
+  capacity     Int      @default(10)
+  bookedCount  Int      @default(0)
+  status       String   @default("AVAILABLE") // AVAILABLE, FULL, CLOSED
+  orders       Order[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Order {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  stallId       String
+  stall         Stall    @relation(fields: [stallId], references: [id])
+  orderNumber   String   @unique
+  status        String   @default("PENDING") // PENDING, PREPARING, READY, COMPLETED, CANCELLED
+  items         String   // JSON string of items
+  totalAmount   Float
+  paymentMethod String
+  pickupSlotId  String?
+  pickupSlot    PickupSlot? @relation(fields: [pickupSlotId], references: [id])
+  pickupDate    String?
+  notifications Notification[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  type      String   // INFO, ORDER_UPDATE, ALERT
+  title     String
+  message   String
+  orderId   String?
+  order     Order?   @relation(fields: [orderId], references: [id])
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
