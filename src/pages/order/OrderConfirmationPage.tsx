@@ -1,16 +1,24 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { PartyPopper, Calendar, Clock, ArrowRight, Share2 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { useCartStore } from '../../store/useCartStore';
 
 export default function OrderConfirmationPage() {
   const navigate = useNavigate();
-  const clearCart = useCartStore((state) => state.clearCart);
+  const location = useLocation();
+  const clearCart = useCartStore((state: any) => state.clearCart);
+  
+  const orderId = location.state?.orderId;
+  const orderNumber = location.state?.orderNumber || 'AE-1024';
 
   const handleTrack = () => {
     clearCart();
-    navigate('/order/track');
+    if (orderId) {
+      navigate(`/order/track/${orderId}`);
+    } else {
+      navigate('/home');
+    }
   };
 
   return (
@@ -22,7 +30,7 @@ export default function OrderConfirmationPage() {
         
         <div className="space-y-4 mb-12">
           <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#10B981]">Order Confirmed</span>
-          <h2 className="text-4xl font-black leading-tight">Order #AE-1024</h2>
+          <h2 className="text-4xl font-black leading-tight">#{orderNumber}</h2>
           <p className="text-white/60 text-sm leading-relaxed max-w-[240px] mx-auto">
             Your order has been placed successfully and sent to the stall!
           </p>

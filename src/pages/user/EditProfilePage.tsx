@@ -4,27 +4,33 @@ import { Lock, Phone, BookOpen, GraduationCap, ArrowLeft, Save, Info } from 'luc
 import { TopBar } from '../../components/navigation/TopBar';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { useAuthStore } from '../../store/useAuthStore';
+import { useSession } from '../../components/auth/AuthContext';
+import { api } from '../../lib/api';
 
 export default function EditProfilePage() {
   const navigate = useNavigate();
-  const { user, updateUser } = useAuthStore();
+  const { data: session, update } = useSession();
+  const user = session?.user;
   const [isLoading, setIsLoading] = useState(false);
 
   const [formData, setFormData] = useState({
-    phone: user?.phone || '',
-    degreeProgram: user?.degreeProgram || '',
-    yearLevel: user?.yearLevel || '',
+    phone: (user as any)?.phone || '',
+    degreeProgram: (user as any)?.program || '',
+    yearLevel: (user as any)?.yearLevel || '',
   });
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setTimeout(() => {
-      updateUser(formData);
-      setIsLoading(false);
+    try {
+      await api.user.updateProfile(formData);
+      await update();
       navigate(-1);
-    }, 1500);
+    } catch (err) {
+      console.error('Update failed:', err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -35,10 +41,10 @@ export default function EditProfilePage() {
         <div className="mb-10 text-center">
           <div className="w-20 h-20 bg-slate-100 rounded-[24px] flex items-center justify-center mx-auto mb-4 border-2 border-slate-200">
              <span className="text-2xl font-black text-slate-400 uppercase">
-                {user?.fullName.split(' ').map(n => n[0]).join('')}
+                {user?.name?.split(' ').map(n => n[0]).join('') || '?'}
               </span>
           </div>
-          <h3 className="text-lg font-bold text-[#0F172A]">{user?.fullName}</h3>
+          <h3 className="text-lg font-bold text-[#0F172A]">{user?.name}</h3>
           <p className="text-xs text-[#64748B]">Member since 2023</p>
         </div>
 

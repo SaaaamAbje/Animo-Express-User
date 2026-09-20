@@ -5,12 +5,13 @@ import { TopBar } from '../../components/navigation/TopBar';
 import { Button } from '../../components/ui/Button';
 import { useCartStore } from '../../store/useCartStore';
 import { formatPrice, cn } from '../../lib/utils';
-import { useAuthStore } from '../../store/useAuthStore';
+import { useSession } from '../../components/auth/AuthContext';
 import { api } from '../../lib/api';
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
-  const user = useAuthStore((state) => state.user);
+  const { data: session } = useSession();
+  const user = session?.user;
   const { items, stall, getTotal, clearCart } = useCartStore();
   const [paymentMethod, setPaymentMethod] = useState<'GCASH' | 'MAYA' | 'CASH'>('GCASH');
   const [isSubmitting, setIsSubmitting] = useState(false);

@@ -9,22 +9,40 @@ import { Skeleton } from '../../components/ui/Skeleton';
 import { Modal } from '../../components/ui/Modal';
 import { formatPrice, cn } from '../../lib/utils';
 import { useCartStore } from '../../store/useCartStore';
-import { useAuthStore } from '../../store/useAuthStore';
+import { useSession } from '../../components/auth/AuthContext';
 import { api } from '../../lib/api';
+
+interface OrderItem {
+  menuItemId: string;
+  name: string;
+  price: number;
+  quantity: number;
+}
+
+interface Order {
+  id: string;
+  stallId: string;
+  stallName: string;
+  status: string;
+  items: OrderItem[];
+  total: number;
+  date: string;
+}
 
 export default function OrderHistoryPage() {
   const navigate = useNavigate();
-  const user = useAuthStore((state) => state.user);
+  const { data: session } = useSession();
+  const user = session?.user;
   const [activeTab, setActiveTab] = useState('All');
-  const [orders, setOrders] = useState<any[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [pendingReorder, setPendingReorder] = useState<any>(null);
   const [errorModal, setErrorModal] = useState<{title: string, message: string} | null>(null);
 
-  const addItem = useCartStore((state) => state.addItem);
-  const clearCart = useCartStore((state) => state.clearCart);
-  const currentStall = useCartStore((state) => state.stall);
+  const addItem = useCartStore((state: any) => state.addItem);
+  const clearCart = useCartStore((state: any) => state.clearCart);
+  const currentStall = useCartStore((state: any) => state.stall);
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -116,7 +134,9 @@ export default function OrderHistoryPage() {
 
   const filteredOrders = activeTab === 'All' 
     ? orders 
-    : orders.filter(o => o.status === activeTab.toUpperCase());
+    : activeTab === 'Active'
+      ? orders.filter((o: Order) => ['PENDING', 'CONFIRMED', 'PREPARING', 'READY'].includes(o.status))
+      : orders.filter((o: Order) => o.status === activeTab.toUpperCase());
 
   return (
     <div className="flex-1 flex flex-col bg-[#F8FAFC]">
@@ -196,6 +216,18 @@ export default function OrderHistoryPage() {
                 </div>
                 
                 <div className="flex items-center gap-2">
+                  {['PENDING', 'CONFIRMED', 'PREPARING', 'READY'].includes(order.status) && (
+                    <Button 
+                      size="sm" 
+                      className="h-8 px-3 rounded-full text-[10px] font-black uppercase tracking-wider bg-[#065F46] hover:bg-[#059669]"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/order/track/${order.id}`);
+                      }}
+                    >
+                      Track
+                    </Button>
+                  )}
                   {(order.status === 'COMPLETED' || order.status === 'CANCELLED') && (
                     <Button 
                       size="sm" 

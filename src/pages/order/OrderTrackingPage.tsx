@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Clock, Check, ChefHat, ShoppingBag, XCircle, ArrowLeft, MoreHorizontal } from 'lucide-react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { Clock, Check, ChefHat, ShoppingBag, XCircle, ArrowLeft, MoreHorizontal, Bell } from 'lucide-react';
 import { TopBar } from '../../components/navigation/TopBar';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { cn } from '../../lib/utils';
+import { api } from '../../lib/api';
 
-type TrackStatus = 'PENDING' | 'CONFIRMED' | 'PREPARING' | 'READY' | 'COMPLETED';
+type TrackStatus = 'PENDING' | 'CONFIRMED' | 'PREPARING' | 'READY' | 'COMPLETED' | 'CANCELLED';
 
 export default function OrderTrackingPage() {
   const navigate = useNavigate();
+  const { id } = useParams();
   const [status, setStatus] = useState<TrackStatus>('PENDING');
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [orderData, setOrderData] = useState<any>(null);
 
   const steps = [
     { id: 'PENDING', label: 'Order Sent', icon: ShoppingBag },
@@ -21,24 +24,59 @@ export default function OrderTrackingPage() {
     { id: 'COMPLETED', label: 'Completed', icon: CheckCircleIcon },
   ];
 
-  // Map icons manually as some aren't imported or exist
-  function BellIcon(props: any) { return <Clock {...props} /> }
+  function BellIcon(props: any) { return <Bell {...props} /> }
   function CheckCircleIcon(props: any) { return <Check {...props} /> }
 
-  const currentIndex = steps.findIndex(s => s.id === status);
-
-  // Auto-advance for simulation
   useEffect(() => {
-    if (status === 'COMPLETED') return;
-    const timer = setTimeout(() => {
-      const nextIndex = currentIndex + 1;
-      if (steps[nextIndex]) {
-        setStatus(steps[nextIndex].id as TrackStatus);
-      }
-    }, 10000); // 10s per step for demo
-    return () => clearTimeout(timer);
-  }, [status]);
+    // Request notification permission
+    if (Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
 
+    const fetchInitialStatus = async () => {
+      if (!id) return;
+      try {
+        const order = await api.orders.getById(id);
+        setOrderData(order);
+        setStatus(order.status as TrackStatus);
+      } catch (err) {
+        console.error('Failed to fetch order:', err);
+      }
+    };
+
+    fetchInitialStatus();
+
+    // SSE Subscription
+    const eventSource = new EventSource(`/api/orders/${id}/stream`);
+
+    eventSource.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      const newStatus = data.status as TrackStatus;
+      
+      if (newStatus !== status) {
+        setStatus(newStatus);
+
+        // Browser Notification
+        if (newStatus === 'READY' && Notification.permission === 'granted') {
+          new Notification('Animo Express', {
+            body: 'Your order is ready for pickup! 🍱',
+            icon: '/favicon.ico'
+          });
+        }
+      }
+    };
+
+    eventSource.onerror = (err) => {
+      console.error('SSE Error:', err);
+      eventSource.close();
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, [id]);
+
+  const currentIndex = steps.findIndex(s => s.id === status);
   const canCancel = status === 'PENDING' || status === 'CONFIRMED';
 
   return (
@@ -51,8 +89,8 @@ export default function OrderTrackingPage() {
           <div className="w-20 h-20 bg-white rounded-[32px] border border-slate-100 flex items-center justify-center mb-4 shadow-sm">
             <ChefHat size={32} className="text-[#065F46]" />
           </div>
-          <h2 className="text-xl font-black text-[#0F172A] mb-1">Stall #1 (Vendor Pending)</h2>
-          <p className="text-[#64748B] text-xs font-bold uppercase tracking-widest">Order #AE-1024</p>
+          <h2 className="text-xl font-black text-[#0F172A] mb-1">{orderData?.stall?.name || 'Stall'}</h2>
+          <p className="text-[#64748B] text-xs font-bold uppercase tracking-widest">Order #AE-{id?.slice(-4).toUpperCase() || '1024'}</p>
         </div>
 
         {/* Stepper */}
@@ -60,7 +98,7 @@ export default function OrderTrackingPage() {
           {/* Vertical Line */}
           <div className="absolute left-[21px] top-4 bottom-4 w-0.5 bg-slate-100" />
           
-          {steps.map((step, index) => {
+          {steps.map((step: any, index) => {
             const isCompleted = index < currentIndex;
             const isCurrent = index === currentIndex;
             

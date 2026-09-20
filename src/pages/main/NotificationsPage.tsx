@@ -3,40 +3,51 @@ import { Bell, CheckCircle2, ChefHat, ShoppingBag, Clock } from 'lucide-react';
 import { TopBar } from '../../components/navigation/TopBar';
 import { BottomNav } from '../../components/navigation/BottomNav';
 import { useNavigate } from 'react-router-dom';
-import { useAuthStore } from '../../store/useAuthStore';
+import { useSession } from '../../components/auth/AuthContext';
 import { api } from '../../lib/api';
 
 export default function NotificationsPage() {
   const navigate = useNavigate();
-  const user = useAuthStore((state) => state.user);
+  const { data: session } = useSession();
+  const user = session?.user;
   const [notifications, setNotifications] = React.useState<any[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
 
-  React.useEffect(() => {
-    const fetchNotifications = async () => {
-      if (!user) return;
-      try {
-        const data = await api.notifications.getByUser(user.id);
-        const formatted = data.map((n: any) => ({
-          ...n,
-          icon: n.type === 'READY' ? Bell : n.type === 'PREPARING' ? ChefHat : CheckCircle2,
-          color: n.type === 'READY' ? 'bg-[#D1FAE5] text-[#065F46]' : n.type === 'PREPARING' ? 'bg-[#FEF3C7] text-[#D97706]' : 'bg-blue-100 text-blue-700',
-          time: new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        }));
-        setNotifications(formatted);
-      } catch (error) {
-        console.error('Failed to fetch notifications:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchNotifications();
+  const fetchNotifications = React.useCallback(async () => {
+    if (!user) return;
+    try {
+      const data = await api.notifications.getByUser(user.id);
+      const formatted = data.map((n: any) => ({
+        ...n,
+        icon: n.type === 'READY' ? Bell : n.type === 'PREPARING' ? ChefHat : CheckCircle2,
+        color: n.type === 'READY' ? 'bg-[#D1FAE5] text-[#065F46]' : n.type === 'PREPARING' ? 'bg-[#FEF3C7] text-[#D97706]' : 'bg-blue-100 text-blue-700',
+        time: new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      }));
+      setNotifications(formatted);
+    } catch (error) {
+      console.error('Failed to fetch notifications:', error);
+    } finally {
+      setIsLoading(false);
+    }
   }, [user]);
+
+  React.useEffect(() => {
+    fetchNotifications();
+
+    const eventSource = new EventSource('/api/notifications/stream');
+    eventSource.onmessage = () => {
+      fetchNotifications();
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, [fetchNotifications]);
 
   const markAllAsRead = async () => {
     try {
-      await Promise.all(notifications.filter(n => !n.isRead).map(n => api.notifications.markAsRead(n.id)));
-      setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+      await Promise.all(notifications.filter((n: any) => !n.isRead).map((n: any) => api.notifications.markAsRead(n.id)));
+      setNotifications(notifications.map((n: any) => ({ ...n, isRead: true })));
     } catch (error) {
       console.error('Failed to mark notifications as read:', error);
     }
@@ -56,7 +67,7 @@ export default function NotificationsPage() {
           {isLoading ? (
             <div className="px-6 py-10 text-center text-[#64748B]">Loading alerts...</div>
           ) : notifications.length > 0 ? (
-            notifications.map((note) => (
+            notifications.map((note: any) => (
               <div 
                 key={note.id}
                 onClick={async () => {

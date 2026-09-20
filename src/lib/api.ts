@@ -74,4 +74,41 @@ export const api = {
       return res.json();
     },
   },
+  user: {
+    updateProfile: async (data: any) => {
+      const res = await fetch('/api/user/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error('Failed to update profile');
+      return res.json();
+    },
+  },
+  auth: {
+    signup: async (data: any) => {
+      const res = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Signup failed');
+      }
+      return res.json();
+    },
+    login: async (credentials: any) => {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(credentials),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Login failed');
+      }
+      return res.json();
+    },
+  },
 };

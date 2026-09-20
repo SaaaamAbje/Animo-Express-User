@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { User, Phone, BookOpen, Hash, ArrowRight, GraduationCap } from 'lucide-react';
+import { User, Phone, BookOpen, Hash, ArrowRight, GraduationCap, Mail } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 
@@ -9,15 +9,22 @@ export default function SignUpStep1Page() {
   const [formData, setFormData] = useState({
     studentId: '',
     fullName: '',
+    email: '',
     degreeProgram: '',
     yearLevel: '',
     phone: '',
   });
+  const [error, setError] = useState('');
 
   const handleNext = (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, save to state and navigate
-    navigate('/signup/password');
+    
+    if (!formData.email.endsWith('@dlsl.edu.ph')) {
+      setError('Please use your @dlsl.edu.ph institutional email.');
+      return;
+    }
+
+    navigate('/signup/password', { state: { userData: formData } });
   };
 
   return (
@@ -32,6 +39,20 @@ export default function SignUpStep1Page() {
       </div>
 
       <form onSubmit={handleNext} className="space-y-4 flex-1">
+        {error && (
+          <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-red-600 text-xs font-bold">
+            {error}
+          </div>
+        )}
+        <Input
+          label="DLSL Email"
+          placeholder="juan.delacruz@dlsl.edu.ph"
+          type="email"
+          value={formData.email}
+          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+          leftIcon={<Mail size={20} />}
+          required
+        />
         <Input
           label="Student ID Number"
           placeholder="2023-XXXXX"

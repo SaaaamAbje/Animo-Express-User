@@ -4,14 +4,15 @@ import { Settings, Shield, HelpCircle, LogOut, ChevronRight, Edit3, Mail, Hash, 
 import { TopBar } from '../../components/navigation/TopBar';
 import { BottomNav } from '../../components/navigation/BottomNav';
 import { Button } from '../../components/ui/Button';
-import { useAuthStore } from '../../store/useAuthStore';
+import { useSession } from '../../components/auth/AuthContext';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
-  const { user, logout } = useAuthStore();
+  const { data: session, signOut } = useSession();
+  const user = session?.user;
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await signOut();
     navigate('/login');
   };
 
@@ -33,10 +34,10 @@ export default function ProfilePage() {
           <div className="relative z-10 flex flex-col items-center">
             <div className="w-24 h-24 bg-[#065F46] rounded-[32px] flex items-center justify-center mb-4 border-4 border-white shadow-xl">
               <span className="text-3xl font-black text-white uppercase">
-                {user?.fullName.split(' ').map(n => n[0]).join('')}
+                {user?.name?.split(' ').map(n => n[0]).join('') || '?'}
               </span>
             </div>
-            <h2 className="text-xl font-black text-[#0F172A] mb-1">{user?.fullName}</h2>
+            <h2 className="text-xl font-black text-[#0F172A] mb-1">{user?.name}</h2>
             <p className="text-xs font-bold text-[#065F46] uppercase tracking-[0.2em] mb-6">DLSL Student</p>
             
             <Button 
@@ -78,7 +79,7 @@ export default function ProfilePage() {
             </div>
             <div className="flex-1">
               <p className="text-[10px] font-black uppercase tracking-wider text-[#94A3B8]">Program & Year</p>
-              <h4 className="font-bold text-[#0F172A]">{user?.degreeProgram} • {user?.yearLevel}</h4>
+              <h4 className="font-bold text-[#0F172A]">{(user as any)?.program || 'N/A'} • {(user as any)?.yearLevel || 'N/A'}</h4>
             </div>
           </div>
         </div>

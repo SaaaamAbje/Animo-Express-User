@@ -1,14 +1,19 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Lock, ShieldCheck, Check, Info } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { api } from '../../lib/api';
 
 export default function SignUpStep2Page() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const userData = location.state?.userData;
+
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const checklist = [
     { label: 'At least 8 characters', met: password.length >= 8 },
@@ -17,15 +22,27 @@ export default function SignUpStep2Page() {
     { label: 'Passwords match', met: password === confirmPassword && password.length > 0 },
   ];
 
-  const handleFinish = (e: React.FormEvent) => {
+  const handleFinish = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!checklist.every(c => c.met)) return;
+    if (!userData) {
+      setError('Missing user information. Please go back to step 1.');
+      return;
+    }
     
     setIsLoading(true);
-    setTimeout(() => {
+    setError('');
+    try {
+      await api.auth.signup({
+        ...userData,
+        password,
+      });
+      navigate('/login', { state: { registered: true } });
+    } catch (err: any) {
+      setError(err.message || 'Registration failed. Please try again.');
+    } finally {
       setIsLoading(false);
-      navigate('/login');
-    }, 1500);
+    }
   };
 
   return (
@@ -40,6 +57,11 @@ export default function SignUpStep2Page() {
       </div>
 
       <form onSubmit={handleFinish} className="space-y-6 flex-1">
+        {error && (
+          <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-red-600 text-xs font-bold">
+            {error}
+          </div>
+        )}
         <div className="space-y-4">
           <Input
             label="Create Password"

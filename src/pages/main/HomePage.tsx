@@ -7,12 +7,13 @@ import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { CATEGORIES } from '../../lib/data';
-import { useAuthStore } from '../../store/useAuthStore';
+import { useSession } from '../../components/auth/AuthContext';
 import { api } from '../../lib/api';
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const user = useAuthStore((state) => state.user);
+  const { data: session } = useSession();
+  const user = session?.user;
   const [activeCategory, setActiveCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [stalls, setStalls] = useState<any[]>([]);
@@ -47,7 +48,7 @@ export default function HomePage() {
         <div className="px-6 pt-6 pb-4">
           <div className="flex items-center gap-3 mb-1">
             <span className="text-2xl">👋</span>
-            <h2 className="text-xl font-black text-[#0F172A]">Animo, {user?.fullName.split(' ')[0]}!</h2>
+            <h2 className="text-xl font-black text-[#0F172A]">Animo, {user?.name?.split(' ')[0]}!</h2>
           </div>
           <p className="text-[#64748B] text-sm flex items-center gap-1.5">
             <MapPin size={14} className="text-[#065F46]" /> DLSL Campus Canteen
